@@ -1,5 +1,7 @@
 <?php
 
+require 'Class/Factory.class.php';
+
 define('OAUTH_CLIENT_ID', '621f59c71bc35');
 define('OAUTH_CLIENT_SECRET', '621f59c71bc36');
 define('FACEBOOK_CLIENT_ID', '1311135729390173');
@@ -9,9 +11,40 @@ define('DISCORD_CLIENT_SECRET', 'fiJS3nTn5cT0EymCPLFrGGXg3ZS8ok9Y');
 define('TWITCH_CLIENT_ID', 'd6uzrutr0l667y2wupnv4vjka6rspz');
 define('TWITCH_CLIENT_SECRET', 'y9bs8wyl8sf1u6wgweytag1z5ow6xj');
 
+$allProvider = [
+    'twitch' => [
+        'clientId' => 'd6uzrutr0l667y2wupnv4vjka6rspz',
+        'clientSecret' => 'y9bs8wyl8sf1u6wgweytag1z5ow6xj',
+        'authorization_url' => 'https://id.twitch.tv/oauth2/authorize',
+        'scope' => 'user:read:email'
+    ],
+    'discord' => [
+        'clientId' => '988786626991894548',
+        'clientSecret' => 'fiJS3nTn5cT0EymCPLFrGGXg3ZS8ok9Y',
+        'authorization_url' => 'https://discord.com/api/oauth2/authorize',
+        'scope' => 'identify email'
+    ],
+    'facebook' => [
+        'clientId' => '1311135729390173',
+        'clientSecret' => 'fc5e25661fe961ab85d130779357541e',
+        'authorization_url' => 'https://www.facebook.com/v2.10/dialog/oauth',
+        'scope' => 'public_profile,email'
+    ],
+    'oauth' => [
+        'clientId' => '621f59c71bc35',
+        'clientSecret' => '621f59c71bc36',
+        'authorization_url' => 'http://localhost:8080/auth',
+        'scope' => 'basic'
+    ]
+];
+
+define('ALL_PROVIDER', $allProvider);
 function login()
 {
-    $queryParams= http_build_query([
+    $factory = new Factory();
+    echo $factory->getAuthorizationUrl(ALL_PROVIDER);
+
+    /*$queryParams= http_build_query([
         'client_id' => OAUTH_CLIENT_ID,
         'redirect_uri' => 'http://localhost:8081/callback',
         'response_type' => 'code',
@@ -51,7 +84,7 @@ function login()
 		'scope' => 'user:read:email',
 		"state" => bin2hex(random_bytes(16))
 	]);
-	echo "<a href=\"https://id.twitch.tv/oauth2/authorize?{$queryParams}\">Login with Twitch</a>";
+	echo "<a href=\"https://id.twitch.tv/oauth2/authorize?{$queryParams}\">Login with Twitch</a>";*/
 }
 
 // Exchange code for token then get user info
