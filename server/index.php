@@ -2,84 +2,86 @@
 
 function readDatabase($filename)
 {
-    $data = file($filename);
-
-    return array_map(fn ($line) => json_decode($line, true), $data);
+    return array_map(fn ($line) => json_decode($line, true), file($filename));
 }
 
 function writeDatabase($filename, $data)
 {
-    file_put_contents($filename, implode(
-        "\n",
-        array_map(
-            fn ($line) => json_encode($line),
-            $data
+    file_put_contents(
+        $filename,
+        implode(
+            "\n",
+            array_map(fn ($line) => json_encode($line), $data)
         )
-    ));
-}
-function insertData($filename, $data)
-{
-    $database = readDatabase($filename);
-    $database[] = $data;
-    writeDatabase($filename, $database);
+    );
 }
 
-function insertApp($app)
+function insert($filename, $line)
 {
-    insertData('./data/apps.db', $app);
-}
-
-function insertCode($code)
-{
-    insertData('./data/codes.db', $code);
-}
-function insertToken($token)
-{
-    insertData('./data/tokens.db', $token);
+    $data = readDatabase($filename);
+    $data[] = $line;
+    writeDatabase($filename, $data);
 }
 
 function findBy($filename, $criteria)
 {
-    $database = readDatabase($filename);
-
-    $result = array_values(array_filter(
-        $database,
-        fn ($app) => count(array_intersect_assoc($app, $criteria)) === count($criteria)
-    ));
-
-    return $result[0] ?? null;
+    $data = readDatabase($filename);
+    $result = array_values(
+        array_filter(
+            $data,
+            fn ($line) => count(array_intersect_assoc($line, $criteria)) == count($criteria)
+        )
+    );
+    return count($result) > 0 ? $result[0] : null;
 }
 
 function findAppBy($criteria)
 {
-    return findBy('./data/apps.db', $criteria);
+    return findBy("./data/apps.db", $criteria);
 }
 
 function findCodeBy($criteria)
 {
-    return findBy('./data/codes.db', $criteria);
-}
-function findTokenBy($criteria)
-{
-    return findBy('./data/tokens.db', $criteria);
+    return findBy("./data/codes.db", $criteria);
 }
 function findUserBy($criteria)
 {
-    return findBy('./data/users.db', $criteria);
+    return findBy("./data/users.db", $criteria);
 }
-
+function findTokenBy($criteria)
+{
+    return findBy("./data/tokens.db", $criteria);
+}
+function findAppByName($name)
+{
+    return findAppBy(['name' => $name]);
+}
+function insertApp($app)
+{
+    insert('./data/apps.db', $app);
+}
+function insertCode($code)
+{
+    insert('./data/codes.db', $code);
+}
+function insertToken($token)
+{
+    insert('./data/tokens.db', $token);
+}
 
 function register()
 {
-    ['name' => $name, 'url' => $url, 'redirect_uri' => $redirectUri] = $_POST;
-    if (findAppBy(['name'=> $name])) {
+    ['name' => $name, 'url' => $url, 'redirect_success' => $redirect] = $_POST;
+    if (findAppByName($name)) {
         http_response_code(409);
         return;
     }
-    $app = array_merge(
-        ['name' => $name, 'url' => $url, 'redirect_uri' => $redirectUri],
-        ['client_id' => uniqid(), 'client_secret' => uniqid()]
-    );
+    $app= [
+        'name' => $name,
+        'url' => $url,
+        'redirect_success' => $redirect,
+        "client_id" => bin2hex(random_bytes(16)), 'client_secret' => bin2hex(random_bytes(16))
+    ];
     insertApp($app);
     http_response_code(201);
     echo json_encode($app);
@@ -87,93 +89,97 @@ function register()
 
 function auth()
 {
-    ['client_id' => $clientId, 'scope'=> $scope, 'state' => $state, 'redirect_uri' => $redirect_uri] = $_GET;
-    $app = findAppBy(['client_id'=> $clientId, 'redirect_uri' => $redirect_uri]);
+    ['client_id'=> $clientId, 'scope' => $scope, 'redirect_uri' => $redirect, 'state' => $state] = $_GET;
+    $app = findAppBy(["client_id" => $clientId, 'redirect_success' => $redirect]);
     if (!$app) {
         http_response_code(404);
         return;
     }
-    if (findTokenBy(['client_id' => $clientId])) {
-        return authSuccess();
-    }
-    echo "Name: {$app['name']}<br>";
-    echo "Scope: {$scope}<br>";
-    echo "URL: {$app['url']}<br>";
-    echo "<a href='/auth-success?client_id={$app['client_id']}&state={$state}'>Oui</a>&nbsp;";
+    echo "Name: $app[name]<br>";
+    echo "Scope: $scope<br>";
+    echo "Url: $app[url]<br>";
+    echo "<a href='/auth-success?state=$state&client_id=$clientId'>Oui</a>&nbsp;";
     echo "<a href='/failed'>Non</a>";
 }
 
 function authSuccess()
 {
-    ['client_id' => $clientId, 'state' => $state] = $_GET;
-    $app = findAppBy(['client_id'=> $clientId]);
+    ['state' => $state, 'client_id' => $clientId] = $_GET;
+    $app = findAppBy(["client_id" => $clientId]);
     if (!$app) {
         http_response_code(404);
-        return;
+        throw new \RuntimeException();
     }
     $code = [
         "code" => bin2hex(random_bytes(16)),
-        "user_id" => 1,
         "client_id" => $clientId,
-        "expiresAt" => time() + (60*5),
+        "user_id" => 1,
+        "expires_at" => time() + 3600,
     ];
     insertCode($code);
-    header("Location: ${app['redirect_uri']}?state=${state}&code=${code['code']}");
+    header("Location: $app[redirect_success]?code=$code[code]&state=$state");
 }
 
-function handleAuthCode($clientId)
+function handleAuthCode($input, $clientId)
 {
-    ['code' => $code] = $_GET;
-    $code = findCodeBy(['code' => $code, 'client_id'=> $clientId]);
+    ['code' => $code] = $input;
+    $code = findCodeBy(["code"=> $code, 'client_id' => $clientId]);
     if (!$code) {
-        throw new \InvalidArgumentException(404);
+        throw new \RuntimeException(404);
     }
-    if ($code['expiresAt'] < time()) {
-        throw new \InvalidArgumentException(400);
+    if ($code['expires_at'] < time()) {
+        throw new \RuntimeException(400);
     }
     return $code['user_id'];
 }
 
-function handlePassword()
+function handlePassword($input)
 {
-    ['username' => $username, 'password' => $password] = $_GET;
-    $user = findUserBy(['username' => $username, 'password' => $password]);
+    ["username" => $username, "password" => $password] = $input;
+    $user = findUserBy(["username" => $username, 'password' => $password]);
     if (!$user) {
-        throw new \InvalidArgumentException(401);
+        throw new \RuntimeException(404);
     }
     return $user['id'];
 }
 
+function handleDefault()
+{
+    throw new \RuntimeException(400);
+}
+
 function token()
 {
-    ['client_id' => $clientId, 'client_secret' => $clientSecret, 'grant_type' => $grantType, 'redirect_uri' => $redirect] = $_GET;
-    try {
-        $app = findAppBy(['client_id'=> $clientId, 'client_secret' => $clientSecret, 'redirect_uri' => $redirect]);
-        if (!$app) {
-            throw new \InvalidArgumentException(401);
-        }
+    $input = $_SERVER['REQUEST_METHOD'] === "POST" ? $_POST : $_GET;
 
+    ['redirect_uri' => $redirect, 'client_id'=> $clientId, 'client_secret' => $clientSecret, 'grant_type' => $grantType] = $input;
+
+    $app = findAppBy([
+        "client_id" => $clientId, "client_secret" => $clientSecret, 'redirect_success' => $redirect
+    ]);
+    if (!$app) {
+        http_response_code(404);
+        return;
+    }
+    
+    try {
         $userId = match ($grantType) {
-            'authorization_code'=> handleAuthCode($clientId),
-            'password' => handlePassword(),
-            'client_credentials' => null,
+            "authorization_code" => handleAuthCode($input, $clientId),
+            "password" => handlePassword($input),
+            "client_credentials" => null,
+            default =>  handleDefault()
         };
 
         $token = [
-            "access_token" => bin2hex(random_bytes(16)),
-            "expiresAt" => time() + (60*60*24*30),
-            "client_id" => $clientId,
-            "user_id"=> $userId,
+            'token' => bin2hex(random_bytes(16)),
+            'expires_at' => time() + (60*60*24*30),
+            'user_id' => $userId,
+            'client_id' => $clientId,
         ];
         insertToken($token);
         http_response_code(201);
-        echo json_encode([
-            "access_token" => $token['access_token'],
-            "expires_in" => $token['expiresAt']
-        ]);
-    } catch (\UnhandledMatchError $e) {
-        http_response_code(400);
-    } catch (\InvalidArgumentException $e) {
+        echo json_encode(["access_token" => $token['token'], 'expire_in' => $token['expires_at']]);
+    } catch (\RuntimeException $e) {
         http_response_code(intval($e->getMessage()));
     }
 }
@@ -181,30 +187,28 @@ function token()
 function me()
 {
     $headers = getallheaders();
-    $authHeader = $headers['Authorization'] ?? $headers['authorization'] ?? null;
-    list($type, $token) = explode(' ', $authHeader);
-    if ($type !== 'Bearer') {
+    $auth = $headers['Authorization'] ?? $headers['authorization'] ?? null;
+    [$type, $token] = explode(" ", $auth);
+    if ($type !== "Bearer") {
         http_response_code(401);
         return;
     }
-    $token = findTokenBy(['access_token' => $token]);
-    if (!$token) {
+    $token = findTokenBy(["token" => $token]);
+    if (!$token || $token['expires_at'] < time()) {
         http_response_code(401);
         return;
     }
-    if ($token['expiresAt'] < time()) {
-        http_response_code(400);
-        return;
-    }
+    $user = findUserBy([
+        "id" => $token['user_id']
+    ]);
     echo json_encode([
-        "user_id" => $token['user_id'],
-        "lastname" => 'Doe',
-        "firstname" => 'John',
+        'user_id' => $token['user_id'],
+        'lastname' => $user['lastname'],
+        'firstname' => $user['firstname']
     ]);
 }
 
-
-$route = $_SERVER['REQUEST_URI'];
+$route = $_SERVER["REQUEST_URI"];
 switch (strtok($route, "?")) {
     case '/register':
         register();
@@ -214,7 +218,7 @@ switch (strtok($route, "?")) {
         break;
     case '/auth-success':
         authSuccess();
-        // no break
+        break;
     case '/token':
         token();
         break;
@@ -222,6 +226,6 @@ switch (strtok($route, "?")) {
         me();
         break;
     default:
-        echo '404';
+        http_response_code(404);
         break;
 }
