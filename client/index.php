@@ -6,6 +6,8 @@ define('FACEBOOK_CLIENT_ID', '1311135729390173');
 define('FACEBOOK_CLIENT_SECRET', 'fc5e25661fe961ab85d130779357541e');
 define('DISCORD_CLIENT_ID', '988786626991894548');
 define('DISCORD_CLIENT_SECRET', 'fiJS3nTn5cT0EymCPLFrGGXg3ZS8ok9Y');
+define('TWITCH_CLIENT_ID', 'd6uzrutr0l667y2wupnv4vjka6rspz');
+define('TWITCH_CLIENT_SECRET', 'y9bs8wyl8sf1u6wgweytag1z5ow6xj');
 
 function login()
 {
@@ -41,6 +43,15 @@ function login()
         "state" => bin2hex(random_bytes(16))
     ]);
     echo "<a href=\"https://discord.com/api/oauth2/authorize?{$queryParams}\">Login with Disocrd</a>";
+
+	$queryParams= http_build_query([
+		'client_id' => TWITCH_CLIENT_ID,
+		'redirect_uri' => 'http://localhost:8081/tw_callback',
+		'response_type' => 'code',
+		'scope' => 'user:read:email',
+		"state" => bin2hex(random_bytes(16))
+	]);
+	echo "<a href=\"https://id.twitch.tv/oauth2/authorize?{$queryParams}\">Login with Twitch</a>";
 }
 
 // Exchange code for token then get user info
@@ -141,6 +152,45 @@ function dscallback()
     var_dump($response);
 }
 
+function twcallback()
+{
+	["code" => $code, "state" => $state] = $_GET;
+
+	$specifParams = [
+		'client_id' => TWITCH_CLIENT_ID,
+		'client_secret' => TWITCH_CLIENT_SECRET,
+		'code' => $code,
+		'grant_type' => 'authorization_code',
+		'redirect_uri' => 'http://localhost:8081/tw_callback',
+	];
+
+	$context = stream_context_create([
+		'http' => [
+			'header' => "Content-Type: application/x-www-form-urlencoded",
+			'method' => "POST",
+			'content' => http_build_query($specifParams)
+		]
+	]);
+
+	$result = file_get_contents('https://id.twitch.tv/oauth2/token', false, $context);
+	$token = json_decode($result, true);
+
+	echo "<pre>";
+	var_dump(json_decode($result, true));
+	echo "</pre>";
+
+	$context = stream_context_create([
+		'http' => [
+			'header' => "Authorization: Bearer {$token['access_token']}\r\nClient-Id: ".TWITCH_CLIENT_ID,
+
+		]
+	]);
+
+	$response = file_get_contents("https://api.twitch.tv/helix/users", false, $context);
+
+	var_dump($response);
+}
+
 $route = $_SERVER["REQUEST_URI"];
 switch (strtok($route, "?")) {
     case '/login':
@@ -155,6 +205,9 @@ switch (strtok($route, "?")) {
     case '/ds_callback':
         dscallback();
         break;
+	case '/tw_callback':
+		twcallback();
+		break;
     default:
         http_response_code(404);
         break;
