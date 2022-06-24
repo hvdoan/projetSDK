@@ -6,12 +6,16 @@ abstract class Provider
 	protected string $clientId;
 	protected string $clientSecret;
 	protected string $authorization_url;
+    protected string $access_token_url;
+    protected string $access_user_url;
 	protected string $scope;
+	protected string $protocol;
 
-	public function __construct(string $clientId, string $clientSecret, string $scope = "")
+	public function __construct(string $clientId, string $clientSecret, string $protocol, string $scope = "")
 	{
 		$this->clientId				= $clientId;
 		$this->clientSecret			= $clientSecret;
+        $this->protocol             = $protocol;
 		$this->scope 				= $scope;
 	}
 
@@ -35,4 +39,49 @@ abstract class Provider
 			"state" => $this->providerName . '_' .bin2hex(random_bytes(16))
 		]);
 	}
+
+    public function get_build_query_token($code)
+    {
+        return [
+            'client_id' => $this->clientId,
+            'client_secret' => $this->clientSecret,
+            'grant_type' => 'authorization_code',
+            'code' => $code,
+            'redirect_uri' => 'http://localhost:8081/callback'
+        ];
+    }
+
+    public function get_token($queryParams)
+    {
+        $token = "";
+
+        if ($this->protocol === "GET") {
+
+            $response = file_get_contents($this->access_token_url . "?" . http_build_query($queryParams));
+            $token = json_decode($response, true);
+        } else if ($this->protocol === "POST") {
+            $context = stream_context_create([
+                'http' => [
+                    'header' => "Content-Type: application/x-www-form-urlencoded",
+                    'method' => "POST",
+                    'content' => http_build_query($queryParams)
+                ]
+            ]);
+            $result = file_get_contents($this->access_token_url, false, $context);
+            $token = json_decode($result, true);
+        }
+
+        return $token;
+    }
+
+    public function get_user($token)
+    {
+        $context = stream_context_create([
+            'http' => [
+                'header' => "Authorization: Bearer {$token['access_token']}"
+            ]
+        ]);
+
+        return file_get_contents($this->access_user_url, false, $context);
+    }
 }
