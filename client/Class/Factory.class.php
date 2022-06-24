@@ -35,12 +35,13 @@ class Factory
 						$scope = "";
 				}
 
-				if(!empty($scope))
-					$providersClass[] = new $provider($providerData["clientId"], $providerData["clientSecret"], $scope);
+				if(!empty($scope)) {
+                    $providersClass[] = new $provider($providerData["clientId"], $providerData["clientSecret"], $providerData["protocol"], $scope);
+                }
 			}
 		}
 
-		return $providersClass;
+        return $providersClass;
 
 //        $htmlContent = '<div>';
 //
@@ -54,7 +55,7 @@ class Factory
 //        return $htmlContent;
     }
 
-    function getProviderQueryParam($key, $provider)
+    /*function getProviderQueryParam($key, $provider)
     {
         return http_build_query([
             'client_id' => $provider['clientId'],
@@ -63,14 +64,26 @@ class Factory
             'scope' => $provider['scope'],
             "state" => $key . '_' .bin2hex(random_bytes(16))
         ]);
+    }*/
+
+    function get_provider($state, $providers)
+    {
+        $provider       = explode("_", $state)[0];
+        $clientId       = $providers[$provider]['clientId'];
+        $clientSecret   = $providers[$provider]['clientSecret'];
+        $protocol       = $providers[$provider]['protocol'];
+
+        $provider       = ucfirst($provider);
+
+        return new $provider($clientId, $clientSecret, $protocol);
     }
 
-    function getSpecificParams($code, $state)
+    /*function getSpecificParams($code, $state)
 	{
 		$provider = ucfirst(explode("_", $state)[0]);
 
 		new $provider();
 		$specificParams = $provider->getSpecificParams($code);
 		var_dump($specificParams);
-	}
+	}*/
 }

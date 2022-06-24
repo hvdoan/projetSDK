@@ -17,29 +17,33 @@ define('TWITCH_CLIENT_ID', 'd6uzrutr0l667y2wupnv4vjka6rspz');
 define('TWITCH_CLIENT_SECRET', 'y9bs8wyl8sf1u6wgweytag1z5ow6xj');
 
 $allProvider = [
-    'twitch' => [
+    'Twitch' => [
         'clientId' => 'd6uzrutr0l667y2wupnv4vjka6rspz',
         'clientSecret' => 'y9bs8wyl8sf1u6wgweytag1z5ow6xj',
         'authorization_url' => 'https://id.twitch.tv/oauth2/authorize',
-        'scope' => 'user:read:email'
+        'scope' => 'user:read:email',
+        'protocol' => 'POST'
     ],
-    'discord' => [
+    'Discord' => [
         'clientId' => '988786626991894548',
         'clientSecret' => 'fiJS3nTn5cT0EymCPLFrGGXg3ZS8ok9Y',
         'authorization_url' => 'https://discord.com/api/oauth2/authorize',
-        'scope' => 'identify email'
+        'scope' => 'identify email',
+        'protocol' => 'POST'
     ],
-    'facebook' => [
-        'clientId' => '1311135729390173',
-        'clientSecret' => 'fc5e25661fe961ab85d130779357541e',
+    'Facebook' => [
+        'clientId' => '690955145422166',
+        'clientSecret' => '757505c99057814360be7b9a63a130b9',
         'authorization_url' => 'https://www.facebook.com/v2.10/dialog/oauth',
-        'scope' => 'public_profile,email'
+        'scope' => 'public_profile,email',
+        'protocol' => 'GET'
     ],
-    'oauth' => [
+    'Oauth' => [
         'clientId' => '621f59c71bc35',
         'clientSecret' => '621f59c71bc36',
         'authorization_url' => 'http://localhost:8080/auth',
-        'scope' => 'basic'
+        'scope' => 'basic',
+        'protocol' => 'GET'
     ]
 ];
 
@@ -59,9 +63,18 @@ function login()
 function callback()
 {
 		["code" => $code, "state" => $state] = $_GET;
-		var_dump($code);
-		var_dump($state);
-//		$factory = new Factory();
+		/*var_dump($code);
+		var_dump($state);*/
+        $factory = new Factory();
+
+        $provider = $factory->get_provider($state, ALL_PROVIDER);
+        $queryParams = $provider->get_build_query_token($code);
+        $token = $provider->get_token($queryParams);
+        $user = $provider->get_user($token);
+
+        var_dump($user);
+
+
 //		$specificParams = $factory->getSpecificParams($code, $state);
 
 
