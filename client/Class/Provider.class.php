@@ -11,11 +11,10 @@ abstract class Provider
 	protected string $scope;
 	protected string $protocol;
 
-	public function __construct(string $clientId, string $clientSecret, string $protocol, string $scope = "")
+	public function __construct(string $clientId, string $clientSecret, string $scope = "")
 	{
 		$this->clientId				= $clientId;
 		$this->clientSecret			= $clientSecret;
-        $this->protocol             = $protocol;
 		$this->scope 				= $scope;
 	}
 
@@ -56,7 +55,6 @@ abstract class Provider
         $token = "";
 
         if ($this->protocol === "GET") {
-
             $response = file_get_contents($this->access_token_url . "?" . http_build_query($queryParams));
             $token = json_decode($response, true);
         } else if ($this->protocol === "POST") {
