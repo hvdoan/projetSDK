@@ -36,7 +36,7 @@ class Factory
 				}
 
 				if(!empty($scope)) {
-                    $providersClass[] = new $provider($providerData["clientId"], $providerData["clientSecret"], $providerData["protocol"], $scope);
+                    $providersClass[] = new $provider($providerData["clientId"], $providerData["clientSecret"], $scope);
                 }
 			}
 		}
@@ -71,11 +71,10 @@ class Factory
         $provider       = explode("_", $state)[0];
         $clientId       = $providers[$provider]['clientId'];
         $clientSecret   = $providers[$provider]['clientSecret'];
-        $protocol       = $providers[$provider]['protocol'];
 
         $provider       = ucfirst($provider);
 
-        return new $provider($clientId, $clientSecret, $protocol);
+        return new $provider($clientId, $clientSecret);
     }
 
     /*function getSpecificParams($code, $state)
